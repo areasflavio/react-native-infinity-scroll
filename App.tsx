@@ -1,6 +1,7 @@
 import axios from 'axios';
 import React, { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   FlatList,
   ListRenderItemInfo,
   StyleSheet,
@@ -16,6 +17,7 @@ import { colors } from './src/theme/colors';
 export default function App() {
   const [list, setList] = useState<Episode[]>([]);
   const [page, setPage] = useState(1);
+  const [hasNextPage, setHasNextPage] = useState(true);
 
   function renderListHeader() {
     return <Text style={styles.title}>Rick and Morty</Text>;
@@ -24,18 +26,30 @@ export default function App() {
     return <EpisodeItem {...item} />;
   }
 
-  async function getCharacters() {
-    // NOTE: Simulating a api call delay here
-    setTimeout(async () => {
-      const { data } = await axios.get<Info<Episode[]>>(
-        `https://rickandmortyapi.com/api/episode?page=${page}`
-      );
+  function renderListFooter(loading: boolean) {
+    if (loading) {
+      return <ActivityIndicator size={'large'} color={colors.primary} />;
+    }
+    return null;
+  }
 
-      if (data.results) {
-        const current = data.results;
-        setList((prev) => [...prev, ...current]);
+  async function getCharacters() {
+    if (!hasNextPage) return;
+
+    const { data } = await axios.get<Info<Episode[]>>(
+      `https://rickandmortyapi.com/api/episode?page=${page}`
+    );
+
+    if (data.results) {
+      const current = data.results;
+      setList((prev) => [...prev, ...current]);
+
+      if (data.info?.next) {
+        setPage((prev) => prev + 1);
+      } else {
+        setHasNextPage(false);
       }
-    }, 2000);
+    }
   }
 
   useEffect(() => {
@@ -51,6 +65,9 @@ export default function App() {
         contentContainerStyle={{ paddingBottom: 20 }}
         keyExtractor={(item) => String(item.id)}
         renderItem={renderItem}
+        onEndReached={getCharacters}
+        onEndReachedThreshold={0.1}
+        ListFooterComponent={() => renderListFooter(hasNextPage)}
       />
     </View>
   );
